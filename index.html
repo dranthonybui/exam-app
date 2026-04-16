@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exam Simulator 2026</title>
+<!-- Apply saved theme before render to prevent flash -->
+<script>
+  (function(){ const t=localStorage.getItem('examSim_theme'); if(t==='dark') document.documentElement.setAttribute('data-theme','dark'); })();
+</script>
+<style>
+  /* ── Password gate ── */
+  #gate {
+    position: fixed; inset: 0; z-index: 9999;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .gate-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 40px 32px;
+    width: 100%; max-width: 380px;
+    text-align: center;
+    box-shadow: 0 4px 24px rgba(0,0,0,.08);
+  }
+  .gate-card h1 { font-size: 1.35rem; margin-bottom: 4px; }
+  .gate-card .gate-sub { color: var(--muted); font-size: 0.875rem; margin-bottom: 28px; }
+  .gate-input-wrap { margin-bottom: 12px; }
+  #gate-input {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 1rem;        /* prevent iOS zoom */
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    text-align: center;
+    letter-spacing: .15em;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color .15s;
+  }
+  #gate-input:focus { border-color: var(--primary); background: var(--card); }
+  #gate-input.gate-error-state { border-color: var(--danger); }
+  #gate-btn {
+    width: 100%;
+    padding: 13px;
+    font-size: 1rem;
+    font-weight: 700;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity .15s;
+    margin-top: 4px;
+  }
+  #gate-btn:hover { opacity: .88; }
+  #gate-error {
+    margin-top: 12px;
+    font-size: 0.85rem;
+    color: var(--danger);
+    min-height: 20px;
+  }
+  @keyframes gate-shake {
+    0%,100% { transform: translateX(0); }
+    15%      { transform: translateX(-9px); }
+    30%      { transform: translateX(9px); }
+    45%      { transform: translateX(-6px); }
+    60%      { transform: translateX(6px); }
+    75%      { transform: translateX(-3px); }
+    90%      { transform: translateX(3px); }
+  }
+  .gate-shake { animation: gate-shake .45s ease; }
+
+  :root {
+    --bg: #f5f6fa;
+    --card: #ffffff;
+    --primary: #2563eb;
+    --primary-light: #eff6ff;
+    --danger: #dc2626;
+    --success: #16a34a;
+    --warn: #d97706;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --muted: #64748b;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* Root bump: 18px base → all rem values scale ~+2px from old 16px assumption */
+  html { font-size: 18px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 1rem; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── Layout ── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .container { max-width: 860px; margin: 0 auto; padding: 24px 16px; }
+
+  /* ── Cards ── */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 16px; }
+  h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+  h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: 16px; color: var(--primary); }
+  h3 { font-size: 1rem; font-weight: 600; margin-bottom: 10px; }
+  .subtitle { color: var(--muted); font-size: 0.875rem; margin-bottom: 20px; }
+
+  /* ── Mode tabs ── */
+  .mode-tabs { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
+  .mode-tab { flex: 1; padding: 10px 16px; border: none; background: var(--bg); color: var(--muted); font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: background .15s, color .15s; }
+  .mode-tab.active { background: var(--primary); color: #fff; }
+  .mode-tab:not(.active):hover { background: var(--primary-light); color: var(--primary); }
+
+  /* ── Form elements ── */
+  label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 6px; color: var(--text); }
+  input[type=number], select { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; background: var(--card); color: var(--text); }
+  input[type=number]:focus, select:focus { outline: 2px solid var(--primary); border-color: transparent; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group:last-child { margin-bottom: 0; }
+
+  /* ── Topic checkboxes & weights ── */
+  .topic-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: var(--bg); }
+  .topic-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--primary); flex-shrink: 0; }
+  .topic-label { flex: 1; font-size: 0.875rem; }
+  .topic-count { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+  .weight-col { display: flex; align-items: center; gap: 6px; }
+  .weight-input { width: 72px !important; text-align: center; padding: 4px 8px; }
+  .weight-label { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+  /* Hide weights in practice mode */
+  .mode-practice .weight-col { display: none; }
+
+  /* ── Buttons ── */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 22px; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-ghost { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+  .btn-neutral { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+  /* ── File load ── */
+  .file-load { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .file-load input[type=file] { display: none; }
+  .file-status { font-size: 0.8rem; color: var(--muted); }
+
+  /* ── Practice history stats ── */
+  .history-stats { font-size: 0.82rem; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; }
+  .history-stats span { color: var(--text); font-weight: 600; }
+
+  /* ── Exam header ── */
+  #exam-header { position: sticky; top: 0; z-index: 100; background: var(--card); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .exam-progress { font-size: 0.85rem; color: var(--muted); }
+  .timer-box { display: flex; align-items: center; gap: 8px; }
+  .timer { font-size: 1.2rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+  .timer.warn { color: var(--warn); }
+  .timer.danger { color: var(--danger); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .progress-bar-wrap { flex: 1; height: 6px; background: var(--border); border-radius: 3px; min-width: 60px; }
+  .progress-bar { height: 100%; background: var(--primary); border-radius: 3px; transition: width .3s; }
+
+  /* ── Question card (exam) ── */
+  .q-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 16px; }
+  .q-num { font-size: 0.75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+  .q-text { font-size: 0.95rem; font-weight: 700; line-height: 1.6; margin-bottom: 16px; }
+  .options { display: flex; flex-direction: column; gap: 8px; }
+  .opt { display: flex; align-items: flex-start; gap: 12px; padding: 10px 14px; border: 2px solid var(--border); border-radius: 8px; cursor: pointer; transition: border-color .15s, background .15s; }
+  .opt:hover:not(.locked) { border-color: var(--primary); background: var(--primary-light); }
+  .opt.selected { border-color: var(--primary); background: var(--primary-light); }
+  .opt.locked { cursor: default; }
+  .opt.reveal-correct { border-color: var(--success) !important; background: #dcfce7 !important; }
+  .opt.reveal-wrong { border-color: var(--danger) !important; background: #fee2e2 !important; }
+  .opt input[type=radio] { display: none; }
+  .opt-letter { width: 26px; height: 26px; border-radius: 50%; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; flex-shrink: 0; margin-top: 1px; transition: background .15s, color .15s; }
+  .opt.selected .opt-letter { background: var(--primary); color: #fff; }
+  .opt.reveal-correct .opt-letter { background: var(--success); color: #fff; }
+  .opt.reveal-wrong .opt-letter { background: var(--danger); color: #fff; }
+  .opt-text { font-size: 0.9rem; line-height: 1.6; overflow-wrap: anywhere; word-break: break-word; min-width: 0; }
+
+  /* ── Results ── */
+  .score-hero { text-align: center; padding: 32px 16px; }
+  .score-big { font-size: 3rem; font-weight: 800; color: var(--primary); }
+  .score-sub { font-size: 1rem; color: var(--muted); margin-top: 4px; }
+  .stats-row { display: flex; justify-content: center; gap: 32px; margin: 20px 0; flex-wrap: wrap; }
+  .stat { text-align: center; }
+  .stat-val { font-size: 1.4rem; font-weight: 700; }
+  .stat-val.correct { color: var(--success); }
+  .stat-val.wrong { color: var(--danger); }
+  .stat-val.skipped { color: var(--muted); }
+  .stat-lbl { font-size: 0.75rem; color: var(--muted); }
+
+  /* ── Review answers ── */
+  .r-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 16px; }
+  .r-card.correct { border-left: 4px solid var(--success); }
+  .r-card.wrong { border-left: 4px solid var(--danger); }
+  .r-card.skipped { border-left: 4px solid var(--muted); }
+  .r-badge { display: inline-block; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; margin-bottom: 10px; }
+  .r-badge.correct { background: #dcfce7; color: var(--success); }
+  .r-badge.wrong { background: #fee2e2; color: var(--danger); }
+  .r-badge.skipped { background: #f1f5f9; color: var(--muted); }
+  .r-meta { font-size: 0.75rem; color: var(--muted); margin-bottom: 6px; }
+  .r-q { font-size: 0.92rem; font-weight: 700; line-height: 1.5; margin-bottom: 12px; }
+  .r-opts { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .r-opt { display: flex; gap: 10px; align-items: flex-start; padding: 7px 12px; border-radius: 6px; font-size: 0.875rem; line-height: 1.5; overflow-wrap: anywhere; word-break: break-word; }
+  .r-opt.is-correct { background: #dcfce7; color: #14532d; font-weight: 600; }
+  .r-opt.is-wrong-pick { background: #fee2e2; color: #7f1d1d; }
+  .r-opt-letter { font-weight: 700; flex-shrink: 0; width: 20px; }
+  .r-exp { font-size: 0.85rem; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 10px 12px; color: #78350f; margin-top: 4px; }
+  .r-exp strong { display: block; margin-bottom: 4px; }
+
+  /* ── Practice header ── */
+  #practice-header { position: sticky; top: 0; z-index: 100; background: var(--card); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+  .practice-prog-text { font-size: 0.875rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  #practice-progress-bar-wrap { flex: 1; height: 6px; background: var(--border); border-radius: 3px; }
+  #practice-progress-bar { height: 100%; background: var(--success); border-radius: 3px; transition: width .4s; }
+
+  /* ── Practice feedback ── */
+  .practice-feedback { margin-top: 16px; padding: 14px 16px; border-radius: 8px; font-size: 0.875rem; line-height: 1.5; }
+  .practice-feedback.fb-correct { background: #dcfce7; border: 1px solid #86efac; color: #14532d; }
+  .practice-feedback.fb-wrong { background: #fee2e2; border: 1px solid #fca5a5; color: #7f1d1d; }
+  .practice-feedback .fb-title { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+  .practice-feedback .fb-exp { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,.1); }
+  .practice-next-wrap { display: flex; justify-content: flex-end; margin-top: 12px; }
+
+  /* ── Misc ── */
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+  .alert { padding: 10px 14px; border-radius: 8px; font-size: 0.875rem; margin-bottom: 16px; }
+  .alert-info { background: var(--primary-light); color: var(--primary); border: 1px solid #bfdbfe; }
+  .alert-warn { background: #fffbeb; color: var(--warn); border: 1px solid #fde68a; }
+
+  /* ── Nav dots (bottom exam) ── */
+  .nav-dots-wrap { background: var(--card); border-top: 1px solid var(--border); padding: 12px 16px; position: sticky; bottom: 0; }
+  .nav-dots { display: flex; flex-wrap: wrap; gap: 5px; }
+  .nav-dot { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); font-size: 0.7rem; cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; transition: background .1s; }
+  .nav-dot.answered { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .nav-dot.current { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+  /* ── Dashboard ── */
+  .dash-section { margin-bottom: 16px; }
+  .dash-overall-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 16px; }
+  .dash-overall-title { font-size: 1rem; font-weight: 700; margin-bottom: 14px; color: var(--text); }
+  .dash-overall-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px; }
+  .dash-overall-stat { text-align: center; }
+  .dash-overall-val { font-size: 1.25rem; font-weight: 800; }
+  .dash-overall-lbl { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+  .dash-bar-wrap { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin: 4px 0 8px; }
+  .dash-bar { height: 100%; border-radius: 4px; background: var(--success); transition: width .5s ease; }
+  .dash-bar-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); }
+
+  .dash-subject-group { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; overflow: hidden; }
+  .dash-subject-header { padding: 14px 20px; background: var(--primary-light); display: flex; align-items: center; gap: 10px; }
+  .dash-subject-name { font-size: 1rem; font-weight: 700; flex: 1; color: var(--primary); }
+  .dash-subject-agg { padding: 12px 20px; border-bottom: 1px solid var(--border); background: #fafbff; }
+
+  .dash-topic-row { padding: 14px 20px; border-bottom: 1px solid var(--border); }
+  .dash-topic-row:last-child { border-bottom: none; }
+  .dash-topic-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .dash-topic-name { font-size: 0.875rem; font-weight: 600; color: var(--text); flex: 1; }
+  .dash-counts { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--muted); margin-top: 6px; }
+  .dash-counts .dc { white-space: nowrap; }
+  .dash-counts .dc strong { color: var(--text); font-weight: 600; }
+
+  .acc-badge { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 2px 9px; border-radius: 99px; white-space: nowrap; flex-shrink: 0; }
+  .acc-high { background: #dcfce7; color: var(--success); }
+  .acc-mid  { background: #fffbeb; color: var(--warn); }
+  .acc-low  { background: #fee2e2; color: var(--danger); }
+  .acc-none { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+
+  #screen-dashboard .container { padding-top: 16px; }
+  .dash-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+  .dash-header-title { font-weight: 700; font-size: 1rem; flex: 1; }
+
+  .dash-empty { text-align: center; padding: 48px 24px; color: var(--muted); font-size: 0.9rem; }
+  .dash-empty .dash-empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+  @media (max-width: 600px) {
+    html { font-size: 16px; }            /* slight step-down on small screens */
+    .form-row { grid-template-columns: 1fr; }
+    .container { padding: 16px 12px; }
+    .card { padding: 18px 16px; }
+    .q-card { padding: 16px; }
+    .r-card { padding: 16px; }
+    .score-big { font-size: 2.25rem; }
+    .stats-row { gap: 18px; }
+    .dash-overall-grid { grid-template-columns: repeat(2, 1fr); }
+    .dash-counts { gap: 8px; }
+    .dash-subject-header { flex-wrap: wrap; gap: 8px; }
+    .dash-topic-row { padding: 12px 14px; }
+    .dash-subject-agg { padding: 10px 14px; }
+    .btn-row { gap: 8px; }
+    .opt { padding: 10px 12px; gap: 10px; }
+    #exam-header { gap: 10px; padding: 10px 12px; }
+    .practice-next-wrap { justify-content: stretch; }
+    .practice-next-wrap .btn { width: 100%; }
+  }
+
+  /* ── Theme toggle button ── */
+  #theme-toggle {
+    position: fixed; top: 14px; right: 16px; z-index: 10000;
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--card);
+    font-size: 1.1rem; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 6px rgba(0,0,0,.12);
+    transition: background .2s, border-color .2s, box-shadow .2s;
+  }
+  #theme-toggle:hover { background: var(--bg); }
+
+  /* ── Dark mode overrides ── */
+  [data-theme="dark"] {
+    --bg: #121212;
+    --card: #1e1e1e;
+    --text: #e0e0e0;
+    --muted: #a0a0a0;
+    --border: #333333;
+    --primary-light: #1e2d4a;
+  }
+  /* Inputs & selects */
+  [data-theme="dark"] input[type=number],
+  [data-theme="dark"] select          { background: #252525; color: var(--text); border-color: var(--border); }
+  [data-theme="dark"] #gate-input     { background: #252525; }
+  [data-theme="dark"] #gate-input:focus { background: #1e1e1e; }
+  /* Gate shadow */
+  [data-theme="dark"] .gate-card      { box-shadow: 0 4px 24px rgba(0,0,0,.5); }
+  /* Progress bar tracks */
+  [data-theme="dark"] .progress-bar-wrap,
+  [data-theme="dark"] .dash-bar-wrap,
+  [data-theme="dark"] #practice-progress-bar-wrap { background: #2a2a2a; }
+  /* Topic/mode-tab rows */
+  [data-theme="dark"] .topic-row      { background: #252525; }
+  [data-theme="dark"] .mode-tab:not(.active) { background: #252525; color: var(--muted); }
+  [data-theme="dark"] .mode-tab:not(.active):hover { background: #2a2a2a; color: var(--text); }
+  /* Nav dots */
+  [data-theme="dark"] .nav-dot        { background: #252525; }
+  [data-theme="dark"] .nav-dots-wrap  { background: var(--card); }
+  /* History stats */
+  [data-theme="dark"] .history-stats  { background: #252525; }
+  /* Correct/wrong option reveals */
+  [data-theme="dark"] .opt.reveal-correct  { background: #163a20 !important; }
+  [data-theme="dark"] .opt.reveal-wrong    { background: #3a1616 !important; }
+  /* Review answer rows */
+  [data-theme="dark"] .r-opt.is-correct    { background: #163a20; color: #86efac; }
+  [data-theme="dark"] .r-opt.is-wrong-pick { background: #3a1616; color: #fca5a5; }
+  /* Review badges */
+  [data-theme="dark"] .r-badge.correct     { background: #163a20; }
+  [data-theme="dark"] .r-badge.wrong       { background: #3a1616; }
+  [data-theme="dark"] .r-badge.skipped     { background: #2a2a2a; }
+  /* Explanation block */
+  [data-theme="dark"] .r-exp              { background: #2a1f00; border-color: #4a3800; color: #fcd34d; }
+  /* Practice feedback */
+  [data-theme="dark"] .practice-feedback.fb-correct { background: #163a20; border-color: #166534; color: #86efac; }
+  [data-theme="dark"] .practice-feedback.fb-wrong   { background: #3a1616; border-color: #991b1b; color: #fca5a5; }
+  /* Alerts */
+  [data-theme="dark"] .alert-info  { background: #1e2d4a; border-color: #1d4ed8; color: #93c5fd; }
+  [data-theme="dark"] .alert-warn  { background: #2a1f00; border-color: #4a3800; color: #fcd34d; }
+  /* Dashboard */
+  [data-theme="dark"] .dash-subject-header { background: #1e2d4a; }
+  [data-theme="dark"] .dash-subject-agg    { background: #1a1a1a; }
+  [data-theme="dark"] .acc-badge.acc-high  { background: #163a20; }
+  [data-theme="dark"] .acc-badge.acc-mid   { background: #2a1f00; color: #fcd34d; }
+  [data-theme="dark"] .acc-badge.acc-low   { background: #3a1616; }
+</style>
+</head>
+<body>
+
+<button id="theme-toggle" onclick="toggleTheme()" title="Chuyển giao diện"></button>
+
+<!-- ══════════════════════════════════════════════
+     PASSWORD GATE
+══════════════════════════════════════════════ -->
+<div id="gate">
+  <div class="gate-card">
+    <h1>Exam Simulator 2026</h1>
+    <p class="gate-sub">Nhập mật khẩu để tiếp tục</p>
+    <div class="gate-input-wrap">
+      <input
+        type="password"
+        id="gate-input"
+        placeholder="Mật khẩu"
+        autocomplete="current-password"
+        onkeydown="if(event.key==='Enter') submitPassword()"
+      >
+    </div>
+    <button id="gate-btn" onclick="submitPassword()">Vào &rarr;</button>
+    <div id="gate-error"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SCREEN 1: SETUP (shared for both modes)
+══════════════════════════════════════════════ -->
+<div id="screen-setup" class="screen active">
+  <div class="container" id="setup-container">
+
+    <div class="card">
+      <h1>Exam Simulator 2026</h1>
+      <p class="subtitle">Trắc nghiệm y khoa</p>
+      <div class="file-load">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('csv-file').click()">Chọn NHCH (.csv) khác</button>
+        <input type="file" id="csv-file" accept=".csv" onchange="loadCSVFile(this)">
+        <span class="file-status" id="file-status">Dữ liệu mặc định: <strong id="q-count-total">0</strong> câu</span>
+      </div>
+
+      <!-- Mode tabs -->
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="tab-exam" onclick="setMode('exam')">📝 Thi thử</button>
+        <button class="mode-tab" id="tab-practice" onclick="setMode('practice')">🧠 Luyện tập</button>
+        <button class="mode-tab" id="tab-dashboard" onclick="showDashboard()">📊 Tiến độ</button>
+      </div>
+    </div>
+
+    <!-- Subject -->
+    <div class="card">
+      <h2>Môn học</h2>
+      <div class="form-group">
+        <label>Chọn môn</label>
+        <select id="sel-subject" onchange="onSubjectChange()"></select>
+      </div>
+    </div>
+
+    <!-- Topics -->
+    <div class="card">
+      <h2 id="topics-card-title">Chủ đề &amp; Tỷ lệ câu hỏi</h2>
+      <p class="subtitle" id="topics-card-sub" style="margin-bottom:12px">Chọn chủ đề và điều chỉnh trọng số (weight). Số câu sẽ phân bổ theo tỷ lệ.</p>
+      <div id="topic-list"></div>
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn btn-ghost btn-sm" onclick="selectAllTopics()">Chọn tất cả</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearAllTopics()">Bỏ chọn tất cả</button>
+        <button class="btn btn-ghost btn-sm exam-only" onclick="equalizeWeights()">Đồng đều weights</button>
+      </div>
+    </div>
+
+    <!-- Settings: exam -->
+    <div class="card exam-only" id="exam-settings">
+      <h2>Cài đặt bài thi</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Số câu hỏi</label>
+          <input type="number" id="num-questions" min="1" value="10" placeholder="Số câu">
+        </div>
+        <div class="form-group">
+          <label>Thời gian (phút)</label>
+          <input type="number" id="num-minutes" min="1" value="15" placeholder="Phút">
+        </div>
+      </div>
+      <div id="setup-alert" class="alert alert-info" style="display:none"></div>
+    </div>
+
+    <!-- Settings: practice -->
+    <div class="card practice-only" id="practice-settings" style="display:none">
+      <h2>Cài đặt luyện tập</h2>
+      <div class="form-group" style="margin-bottom:16px">
+        <label>Số câu mỗi phiên</label>
+        <input type="number" id="prac-num-questions" min="1" value="10" placeholder="Số câu">
+      </div>
+      <div class="history-stats" id="history-stats-display">Đang tải lịch sử...</div>
+      <div class="btn-row">
+        <button class="btn btn-neutral btn-sm" onclick="resetHistory()">Xóa lịch sử luyện tập</button>
+      </div>
+      <div id="practice-alert" class="alert alert-info" style="display:none; margin-top:12px"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary exam-only" onclick="startExam()">Bắt đầu thi &#8594;</button>
+      <button class="btn btn-success practice-only" style="display:none" onclick="startPractice()">Bắt đầu luyện tập &#8594;</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SCREEN 2: EXAM
+══════════════════════════════════════════════ -->
+<div id="screen-exam" class="screen">
+  <div id="exam-header">
+    <button class="btn btn-neutral btn-sm" onclick="confirmExitExam()" title="Thoát bài thi">✕ Thoát</button>
+    <div>
+      <div style="font-weight:700; font-size:.95rem" id="exam-title">Exam</div>
+      <div class="exam-progress" id="exam-progress"></div>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+    </div>
+    <div class="timer-box">
+      <span style="font-size:0.8rem; color:var(--muted)">⏱</span>
+      <span class="timer" id="timer-display">00:00</span>
+    </div>
+    <button class="btn btn-danger btn-sm" onclick="confirmSubmit()">Nộp bài</button>
+  </div>
+
+  <div class="container" id="exam-questions"></div>
+
+  <div class="nav-dots-wrap">
+    <div class="nav-dots" id="nav-dots"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SCREEN 3: EXAM RESULTS
+══════════════════════════════════════════════ -->
+<div id="screen-results" class="screen">
+  <div class="container">
+    <div class="card">
+      <div class="score-hero">
+        <div class="score-big" id="res-score">0%</div>
+        <div class="score-sub" id="res-fraction"></div>
+      </div>
+      <div class="stats-row">
+        <div class="stat"><div class="stat-val correct" id="res-correct">0</div><div class="stat-lbl">Đúng</div></div>
+        <div class="stat"><div class="stat-val wrong" id="res-wrong">0</div><div class="stat-lbl">Sai</div></div>
+        <div class="stat"><div class="stat-val skipped" id="res-skipped">0</div><div class="stat-lbl">Bỏ qua</div></div>
+        <div class="stat"><div class="stat-val" id="res-time" style="color:var(--text)">—</div><div class="stat-lbl">Thời gian</div></div>
+      </div>
+      <div class="divider"></div>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn btn-ghost" onclick="restartToSetup()">← Về trang chủ</button>
+        <button class="btn btn-primary" onclick="restartExam()">Thi lại</button>
+        <button class="btn btn-ghost" id="toggle-review-btn" onclick="toggleReview()">Xem đáp án &#9660;</button>
+        <button class="btn btn-neutral" id="sync-wrong-btn" onclick="syncWrongToPractice()">Đưa câu sai vào luyện tập</button>
+      </div>
+      <div id="sync-confirm" style="display:none; text-align:center; margin-top:12px; font-size:0.875rem; color:var(--success); font-weight:600;"></div>
+    </div>
+    <div id="review-section" style="display:none">
+      <div id="review-cards"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SCREEN 4: PRACTICE (one question at a time)
+══════════════════════════════════════════════ -->
+<div id="screen-practice" class="screen">
+  <div id="practice-header">
+    <button class="btn btn-neutral btn-sm" onclick="confirmExitPractice()">← Thoát</button>
+    <div id="practice-progress-bar-wrap">
+      <div id="practice-progress-bar" style="width:0%"></div>
+    </div>
+    <div class="practice-prog-text" id="practice-prog-text">Câu 1 / 10</div>
+  </div>
+
+  <div class="container">
+    <div class="q-card">
+      <div class="q-num" id="practice-q-num"></div>
+      <div class="q-text" id="practice-q-text"></div>
+      <div class="options" id="practice-options"></div>
+      <div id="practice-feedback" style="display:none"></div>
+    </div>
+    <div class="practice-next-wrap">
+      <button class="btn btn-primary" id="practice-next-btn" onclick="nextPracticeQuestion()" style="display:none">
+        Tiếp theo &#8594;
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SCREEN 5: PRACTICE RESULTS
+══════════════════════════════════════════════ -->
+<div id="screen-practice-results" class="screen">
+  <div class="container">
+    <div class="card">
+      <div class="score-hero">
+        <div class="score-big" id="pres-score">0%</div>
+        <div class="score-sub" id="pres-fraction"></div>
+      </div>
+      <div class="stats-row">
+        <div class="stat"><div class="stat-val correct" id="pres-correct">0</div><div class="stat-lbl">Đúng</div></div>
+        <div class="stat"><div class="stat-val wrong" id="pres-wrong">0</div><div class="stat-lbl">Sai</div></div>
+      </div>
+      <div class="divider"></div>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn btn-ghost" onclick="restartToSetup()">← Về trang chủ</button>
+        <button class="btn btn-success" onclick="restartPractice()">Luyện tập lại</button>
+        <button class="btn btn-ghost" id="toggle-preview-btn" onclick="togglePracticeReview()">Xem lại đáp án &#9660;</button>
+      </div>
+    </div>
+    <div id="practice-review-section" style="display:none">
+      <div id="practice-review-cards"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SCREEN 6: PROGRESS DASHBOARD
+══════════════════════════════════════════════ -->
+<div id="screen-dashboard" class="screen">
+  <div class="dash-header">
+    <button class="btn btn-neutral btn-sm" onclick="restartToSetup()">← Về trang chủ</button>
+    <span class="dash-header-title">📊 Tiến độ luyện tập</span>
+    <button class="btn btn-neutral btn-sm" onclick="renderDashboard()">↻ Cập nhật</button>
+  </div>
+  <div class="container">
+    <div id="dashboard-content"></div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// DARK MODE
+// ─────────────────────────────────────────────
+const THEME_KEY = 'examSim_theme';
+
+function initTheme() {
+  const saved = localStorage.getItem(THEME_KEY) || 'light';
+  applyTheme(saved);
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('theme-toggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+
+function toggleTheme() {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+}
+
+// ─────────────────────────────────────────────
+// PASSWORD GATE
+// ─────────────────────────────────────────────
+const APP_PASSWORD = 'exam2026';
+const AUTH_KEY = 'examSim_auth';
+
+(function checkAuth() {
+  if (sessionStorage.getItem(AUTH_KEY) === '1') unlockApp();
+})();
+
+function unlockApp() {
+  document.getElementById('gate').style.display = 'none';
+}
+
+function submitPassword() {
+  const input = document.getElementById('gate-input');
+  const errorEl = document.getElementById('gate-error');
+  if (input.value === APP_PASSWORD) {
+    sessionStorage.setItem(AUTH_KEY, '1');
+    unlockApp();
+  } else {
+    input.value = '';
+    errorEl.textContent = 'Mật khẩu không đúng. Vui lòng thử lại.';
+    input.classList.remove('gate-shake', 'gate-error-state');
+    // Force reflow so removing+re-adding the class retriggers the animation
+    void input.offsetWidth;
+    input.classList.add('gate-shake', 'gate-error-state');
+    input.addEventListener('animationend', () => input.classList.remove('gate-shake'), { once: true });
+    input.focus();
+  }
+}
+
+// ─────────────────────────────────────────────
+// EMBEDDED DATA
+// ─────────────────────────────────────────────
+const EMBEDDED_DATA = [{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Sự chi phối của thần kinh giao cảm tới vùng cổ xuất phát từ:","A":"D2","B":"D3-D6","C":"D7-D11","D":"D12-L2","answer":"A","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Khái niệm phản xạ có điều kiện, NGOẠI TRỪ:","A":"Phản xạ là phản ứng của cơ thể đối với những kích thích của môi trường bên ngoài cũng như bên trong cơ thể","B":"Pavlov phân biệt 2 loại phản xạ: phản xạ không điều kiện (PXKĐK) và phản xạ có điều kiện (PXCĐK)","C":"PXKĐK có một cung phản xạ vĩnh viễn","D":"Quá trình sống và học tập đã tạo ra vô số các PXKĐK để giúp cơ thể thích nghi và tồn tại một cách linh hoạt","answer":"D","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Sợi truyền cảm giác nhiệt và đau \u201cnhanh\u201d thuộc loại sợi:","A":"Aα","B":"Aβ","C":"Aγ","D":"Aδ","answer":"D","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Chặng dẫn truyền hướng tâm cảm giác nhiệt từ ngoại biên về đồi thị có đặc điểm, NGOẠI TRỪ:","A":"Dẫn truyền theo 02 loại sợi: A delta dẫn truyền cảm giác nhiệt nóng, C dẫn truyền cảm giác nhiệt lạnh","B":"Có 3 nơron tham gia","C":"Từ tủy sống đi theo bó gai thị trước đến tận cùng ở chất lưới thân não và phức hợp bụng nền ở đồi thị","D":"Vị trí bắt chéo tại nơron thứ 2, thân nằm sừng sau tủy sống, sợi trục bắt chéo sang bên đối diện","answer":"A","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Đặc điểm của đường dẫn truyền hướng tâm cảm giác đau:","A":"Trung tâm nhận cảm cảm giác đau ở thùy đỉnh của vỏ não","B":"Có 2 nơron tham gia dẫn truyền","C":"Xung động được dẫn truyền theo bó gai lưới tận cùng ở cấu tạo lưới thuộc hành não, cầu não, não giữa cả hai bên","D":"Dẫn truyền theo bó gai thị sau","answer":"C","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Sợi tiền hạch giao cảm thuộc loại sợi:","A":"B","B":"Aα","C":"Aβ","D":"C","answer":"A","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Sự dẫn truyền trên dây thần kinh giúp thông tin được đảm bảo dẫn truyền chính xác đến đích nhờ đặc điểm:","A":"Sự dẫn truyền xung động xảy ra trên từng sợi không lan tỏa sang các sợi khác","B":"Quy luật hoạt động \"tất cả hoặc không có gì\"","C":"Quy luật tương quan giữa cường độ kích thích và cường độ đáp ứng","D":"Sự dẫn truyền hai chiều trên sợi trục","answer":"A","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Tác động của hệ thần kinh giao cảm NGOẠI TRỪ:","A":"Co cơ trơn phế quản","B":"Tăng nhịp tim","C":"Tăng huyết áp","D":"Dãn đồng tử","answer":"A","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Synap là:","A":"Vừa là đơn vị cấu trúc vừa là đơn vị chức năng của hệ thần kinh","B":"Là \"khớp\" giữa noron này với một noron khác hoặc với tế bào đáp ứng","C":"Vị trí chuyển tiếp từ thân tế bào thần kinh thành sợi trục","D":"Là những tua bào tương ngắn, phân nhánh","answer":"B","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Enzyme tổng hợp Acetylcholin:","A":"Cholinesterase","B":"Acetylcholintransferase","C":"Amylase","D":"Catechol - O - Methyltranferase","answer":"B","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Các loại thụ thể xúc giác, NGOẠI TRỪ:","A":"Tiểu thể Ruffini","B":"Tiểu thể Pacini","C":"Tiểu thể Meissner","D":"Đĩa Merkel","answer":"A","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Đặc điểm trong dẫn truyền cảm giác xúc giác:","A":"Có 3 chặng dẫn truyền","B":"Bó gai thị trước bắt chéo ở nhân thon và nhân chêm của hành não","C":"Bó gai thị sau bắt chéo ở tủy sống","D":"Có 2 noron tham gia dẫn truyền","answer":"A","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Đặc điểm của tế bào Schwann là:","A":"Tham gia vào quá trình trao đổi chất, cung cấp một số chất dinh dưỡng...","B":"Tổng hợp myelin trong hệ thần kinh trung ương","C":"Tổng hợp myelin trong hệ thần kinh ngoại biên","D":"Xuất hiện nhiều sau chấn thương thần kinh","answer":"C","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Đặc điểm cảm giác đau, NGOẠI TRỪ:","A":"Vỏ não đánh giá đau về chất","B":"Thụ thể cảm giác đau là đầu dây tự do của dây thần kinh","C":"Loại sợi Aδ có myelin dẫn truyền nhanh cảm giác đau cấp","D":"Thụ thể đau có tính thích nghi cao","answer":"D","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Sắp xếp theo thứ tự tốc độ dẫn truyền giảm dần trên các loại sợi trục:","A":"A alpha - A beta - A gamma - A delta","B":"A alpha - A delta - A beta - A gamma","C":"A alpha - A gamma - A beta - A delta","D":"A alpha - A beta - A delta - A gamma","answer":"A","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Hạch tai thuộc dây thần kinh:","A":"III","B":"VII","C":"IX","D":"X","answer":"C","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Xung động adrenergic làm:","A":"Giãn cơ thể mi","B":"Giảm tần số tim","C":"Hoạt động tâm thần giảm","D":"Giãn mạch ở da niêm","answer":"A","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Sợi trục có đường kính nhỏ nhất:","A":"A alpha","B":"A beta","C":"B","D":"C","answer":"D","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Phản xạ có điều kiện có những tính chất sau, NGOẠI TRỪ:","A":"Tập luyện","B":"Chủng loài","C":"Tạm thời","D":"Không di truyền","answer":"B","explanation":""},{"subject":"Sinh lý","topic":"Điều hòa bằng cơ chế thần kinh","question":"Enzyme phân hủy Achetylcholin:","A":"Cholinesterase","B":"Acetylcholintransferase","C":"Amylase","D":"Catechol - O - Methyltranferase","answer":"A","explanation":""}];
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let allQuestions = [];
+let currentMode = 'exam';    // 'exam' | 'practice'
+
+// Exam state
+let examQuestions = [];
+let userAnswers = [];
+let timerInterval = null;
+let timerSeconds = 0;
+let examStartTime = null;
+
+// Practice state
+let practiceQuestions = [];  // [{orig, shuffledOpts, correctIdx}]
+let practiceIdx = 0;
+let practiceResults = [];    // [{status:'correct'|'wrong', userOptIdx, correctIdx}]
+let practiceReviewVisible = false;
+
+// ─────────────────────────────────────────────
+// localStorage HISTORY
+// ─────────────────────────────────────────────
+const LS_KEY = 'examSim_practiceHistory';
+
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); }
+  catch { return {}; }
+}
+function saveHistory(h) { localStorage.setItem(LS_KEY, JSON.stringify(h)); }
+function qKey(q) { return q.subject + '||' + q.question; }
+
+function resetHistory() {
+  if (confirm('Xóa toàn bộ lịch sử luyện tập? Thao tác này không thể hoàn tác.')) {
+    localStorage.removeItem(LS_KEY);
+    updateHistoryStats();
+  }
+}
+
+function updateHistoryStats() {
+  const h = getHistory();
+  const entries = Object.values(h);
+  const el = document.getElementById('history-stats-display');
+  if (!el) return;
+  if (entries.length === 0) {
+    el.innerHTML = 'Chưa có lịch sử. Câu hỏi mới được ưu tiên <span>2×</span>.';
+    return;
+  }
+  const correct = entries.filter(e => e.status === 'correct').length;
+  const wrong = entries.filter(e => e.status === 'wrong').length;
+  el.innerHTML = `Đã học: <span>${entries.length}</span> câu — Đúng: <span>${correct}</span>, Sai: <span>${wrong}</span> (sai được ưu tiên <span>3×</span>)`;
+}
+
+// ─────────────────────────────────────────────
+// CSV PARSER
+// ─────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = parseCSVRow(lines[0]);
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const vals = parseCSVRow(lines[i]);
+    const row = {};
+    headers.forEach((h, idx) => { row[h.trim()] = (vals[idx] || '').trim(); });
+    rows.push(row);
+  }
+  return rows;
+}
+
+function parseCSVRow(line) {
+  const result = [];
+  let cur = '', inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (inQuote && line[i+1] === '"') { cur += '"'; i++; }
+      else { inQuote = !inQuote; }
+    } else if (c === ',' && !inQuote) {
+      result.push(cur); cur = '';
+    } else { cur += c; }
+  }
+  result.push(cur);
+  return result;
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+function init(data) {
+  allQuestions = data.filter(r => r.question && r.answer);
+  document.getElementById('q-count-total').textContent = allQuestions.length;
+  buildSubjectSelect();
+  updateHistoryStats();
+}
+
+function loadCSVFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = parseCSV(e.target.result);
+      const newQuestions = data.filter(r => r.question && r.answer);
+      checkTopicSigOnLoad(newQuestions);
+      init(data);
+      document.getElementById('file-status').innerHTML =
+        `<strong>${escHtml(file.name)}</strong>: <strong id="q-count-total">${allQuestions.length}</strong> câu`;
+    } catch(err) { alert('Lỗi đọc CSV: ' + err.message); }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ─────────────────────────────────────────────
+// MODE TOGGLE
+// ─────────────────────────────────────────────
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('tab-exam').classList.toggle('active', mode === 'exam');
+  document.getElementById('tab-practice').classList.toggle('active', mode === 'practice');
+
+  const container = document.getElementById('setup-container');
+  container.classList.toggle('mode-practice', mode === 'practice');
+
+  // Show/hide exam-only and practice-only elements
+  document.querySelectorAll('.exam-only').forEach(el => {
+    el.style.display = mode === 'exam' ? '' : 'none';
+  });
+  document.querySelectorAll('.practice-only').forEach(el => {
+    el.style.display = mode === 'practice' ? '' : 'none';
+  });
+
+  // Update topics card subtitle
+  document.getElementById('topics-card-title').textContent =
+    mode === 'exam' ? 'Chủ đề & Tỷ lệ câu hỏi' : 'Chủ đề';
+  document.getElementById('topics-card-sub').textContent =
+    mode === 'exam'
+      ? 'Chọn chủ đề và điều chỉnh trọng số (weight). Số câu sẽ phân bổ theo tỷ lệ.'
+      : 'Chọn chủ đề để luyện tập.';
+
+  if (mode === 'practice') updateHistoryStats();
+}
+
+// ─────────────────────────────────────────────
+// SETUP UI — shared subject/topic selectors
+// ─────────────────────────────────────────────
+function buildSubjectSelect() {
+  const subjects = [...new Set(allQuestions.map(q => q.subject))].sort();
+  const sel = document.getElementById('sel-subject');
+  sel.innerHTML = '<option value="__all__">Tất cả môn</option>';
+  subjects.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s; opt.textContent = s;
+    sel.appendChild(opt);
+  });
+  onSubjectChange();
+}
+
+function getFilteredBySubject() {
+  const v = document.getElementById('sel-subject').value;
+  return v === '__all__' ? allQuestions : allQuestions.filter(q => q.subject === v);
+}
+
+function onSubjectChange() {
+  const qs = getFilteredBySubject();
+  const topicMap = {};
+  qs.forEach(q => { topicMap[q.topic] = (topicMap[q.topic] || 0) + 1; });
+  const tl = document.getElementById('topic-list');
+  tl.innerHTML = '';
+  Object.entries(topicMap).forEach(([topic, count]) => {
+    const row = document.createElement('div');
+    row.className = 'topic-row';
+    row.innerHTML = `
+      <input type="checkbox" class="topic-cb" data-topic="${escHtml(topic)}" checked>
+      <span class="topic-label">${escHtml(topic)}</span>
+      <span class="topic-count">${count} câu</span>
+      <span class="weight-col">
+        <span class="weight-label">Weight:</span>
+        <input type="number" class="weight-input" data-topic="${escHtml(topic)}" min="1" max="100" value="1">
+      </span>
+    `;
+    tl.appendChild(row);
+  });
+  document.getElementById('num-questions').max = qs.length;
+  document.getElementById('prac-num-questions').max = qs.length;
+}
+
+function selectAllTopics() { document.querySelectorAll('.topic-cb').forEach(cb => cb.checked = true); }
+function clearAllTopics()  { document.querySelectorAll('.topic-cb').forEach(cb => cb.checked = false); }
+function equalizeWeights() { document.querySelectorAll('.weight-input').forEach(inp => inp.value = 1); }
+
+// ─────────────────────────────────────────────
+// SHARED: build question pool with weights/topics
+// ─────────────────────────────────────────────
+function getSelectedTopics() {
+  const topics = [];
+  document.querySelectorAll('.topic-cb:checked').forEach(cb => {
+    topics.push(cb.dataset.topic);
+  });
+  return topics;
+}
+
+function buildShuffledQ(orig) {
+  const opts = [
+    { letter: 'A', text: orig.A },
+    { letter: 'B', text: orig.B },
+    { letter: 'C', text: orig.C },
+    { letter: 'D', text: orig.D },
+  ].filter(o => o.text && o.text.trim());
+  const shuffledOpts = shuffle(opts);
+  const correctIdx = shuffledOpts.findIndex(o => o.letter === orig.answer);
+  return { orig, shuffledOpts, correctIdx };
+}
+
+// ─────────────────────────────────────────────
+// EXAM MODE
+// ─────────────────────────────────────────────
+function startExam() {
+  const alertEl = document.getElementById('setup-alert');
+  alertEl.style.display = 'none';
+
+  const selected = [];
+  document.querySelectorAll('.topic-cb:checked').forEach(cb => {
+    const topic = cb.dataset.topic;
+    const weightEl = document.querySelector(`.weight-input[data-topic="${escAttr(topic)}"]`);
+    const weight = Math.max(1, parseFloat(weightEl.value) || 1);
+    selected.push({ topic, weight });
+  });
+
+  if (selected.length === 0) { showAlert(alertEl, 'warn', 'Vui lòng chọn ít nhất một chủ đề.'); return; }
+
+  const totalRequested = parseInt(document.getElementById('num-questions').value) || 10;
+  const minutes = parseInt(document.getElementById('num-minutes').value) || 15;
+  if (totalRequested < 1) { showAlert(alertEl, 'warn', 'Số câu hỏi phải ít nhất là 1.'); return; }
+  if (minutes < 1)        { showAlert(alertEl, 'warn', 'Thời gian phải ít nhất là 1 phút.'); return; }
+
+  const subjectFilter = document.getElementById('sel-subject').value;
+  const pool = subjectFilter === '__all__' ? allQuestions : allQuestions.filter(q => q.subject === subjectFilter);
+
+  const topicPools = {};
+  selected.forEach(({ topic }) => { topicPools[topic] = shuffle(pool.filter(q => q.topic === topic)); });
+
+  const totalWeight = selected.reduce((s, t) => s + t.weight, 0);
+  let allocations = selected.map(({ topic, weight }) => ({
+    topic, quota: Math.round((weight / totalWeight) * totalRequested)
+  }));
+  const diff = totalRequested - allocations.reduce((s, a) => s + a.quota, 0);
+  allocations[0].quota += diff;
+
+  const picked = [];
+  let shortage = 0;
+  allocations.forEach(({ topic, quota }) => {
+    const tp = topicPools[topic] || [];
+    const take = Math.min(quota + shortage, tp.length);
+    shortage = Math.max(0, quota - tp.length);
+    picked.push(...tp.slice(0, take));
+  });
+
+  if (picked.length === 0) { showAlert(alertEl, 'warn', 'Không có câu hỏi nào phù hợp với lựa chọn.'); return; }
+
+  examQuestions = shuffle(picked).slice(0, totalRequested).map(buildShuffledQ);
+  userAnswers = new Array(examQuestions.length).fill(null);
+  timerSeconds = minutes * 60;
+  examStartTime = Date.now();
+
+  renderExam();
+  showScreen('exam');
+  startTimer();
+}
+
+function renderExam() {
+  document.getElementById('exam-title').textContent = `${examQuestions.length} câu`;
+  updateExamProgress();
+  const container = document.getElementById('exam-questions');
+  container.innerHTML = '';
+
+  examQuestions.forEach((eq, qi) => {
+    const card = document.createElement('div');
+    card.className = 'q-card';
+    card.id = `q-${qi}`;
+    const optsHtml = eq.shuffledOpts.map((opt, oi) => `
+      <label class="opt" id="opt-${qi}-${oi}" onclick="selectAnswer(${qi}, ${oi})">
+        <input type="radio" name="q${qi}" value="${oi}">
+        <span class="opt-letter">${String.fromCharCode(65 + oi)}</span>
+        <span class="opt-text">${escHtml(opt.text)}</span>
+      </label>
+    `).join('');
+    card.innerHTML = `
+      <div class="q-num">Câu ${qi + 1} / ${examQuestions.length}</div>
+      <div class="q-text">${escHtml(eq.orig.question)}</div>
+      <div class="options">${optsHtml}</div>
+    `;
+    container.appendChild(card);
+  });
+  renderNavDots();
+}
+
+function selectAnswer(qi, oi) {
+  userAnswers[qi] = oi;
+  examQuestions[qi].shuffledOpts.forEach((_, idx) => {
+    const el = document.getElementById(`opt-${qi}-${idx}`);
+    if (el) el.classList.toggle('selected', idx === oi);
+  });
+  updateNavDot(qi);
+  updateExamProgress();
+}
+
+function updateExamProgress() {
+  const answered = userAnswers.filter(a => a !== null).length;
+  const total = examQuestions.length;
+  document.getElementById('exam-progress').textContent = `${answered}/${total} đã trả lời`;
+  document.getElementById('progress-bar').style.width = `${(answered / total) * 100}%`;
+}
+
+function renderNavDots() {
+  const wrap = document.getElementById('nav-dots');
+  wrap.innerHTML = '';
+  examQuestions.forEach((_, qi) => {
+    const dot = document.createElement('button');
+    dot.className = 'nav-dot';
+    dot.id = `dot-${qi}`;
+    dot.textContent = qi + 1;
+    dot.onclick = () => scrollToQuestion(qi);
+    wrap.appendChild(dot);
+  });
+}
+
+function updateNavDot(qi) {
+  const dot = document.getElementById(`dot-${qi}`);
+  if (dot) dot.classList.toggle('answered', userAnswers[qi] !== null);
+}
+
+function scrollToQuestion(qi) {
+  document.getElementById(`q-${qi}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Timer ──
+function startTimer() {
+  clearInterval(timerInterval);
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    timerSeconds--;
+    if (timerSeconds <= 0) {
+      timerSeconds = 0;
+      updateTimerDisplay();
+      clearInterval(timerInterval);
+      submitExam(true);
+    } else { updateTimerDisplay(); }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const el = document.getElementById('timer-display');
+  const m = Math.floor(timerSeconds / 60), s = timerSeconds % 60;
+  el.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  el.className = 'timer';
+  if (timerSeconds <= 60) el.classList.add('danger');
+  else if (timerSeconds <= 180) el.classList.add('warn');
+}
+
+// ── Submit ──
+function confirmSubmit() {
+  const unanswered = userAnswers.filter(a => a === null).length;
+  const msg = unanswered > 0
+    ? `Còn ${unanswered} câu chưa trả lời. Bạn có chắc muốn nộp bài?`
+    : 'Bạn có chắc muốn nộp bài?';
+  if (confirm(msg)) submitExam(false);
+}
+
+function submitExam(autoSubmit) {
+  clearInterval(timerInterval);
+  const elapsed = Math.round((Date.now() - examStartTime) / 1000);
+  let correct = 0, wrong = 0, skipped = 0;
+  examQuestions.forEach((eq, qi) => {
+    const ans = userAnswers[qi];
+    if (ans === null) skipped++;
+    else if (ans === eq.correctIdx) correct++;
+    else wrong++;
+  });
+  const total = examQuestions.length;
+  document.getElementById('res-score').textContent = `${Math.round((correct/total)*100)}%`;
+  document.getElementById('res-fraction').textContent = `${correct} / ${total} câu đúng`;
+  document.getElementById('res-correct').textContent = correct;
+  document.getElementById('res-wrong').textContent = wrong;
+  document.getElementById('res-skipped').textContent = skipped;
+  document.getElementById('res-time').textContent = formatTime(elapsed);
+  buildReview();
+  // Reset sync button for this exam session
+  const syncBtn = document.getElementById('sync-wrong-btn');
+  syncBtn.disabled = false;
+  syncBtn.textContent = 'Đưa câu sai vào luyện tập';
+  document.getElementById('sync-confirm').style.display = 'none';
+  // Hide button if no wrong answers
+  syncBtn.style.display = (wrong > 0) ? '' : 'none';
+  showScreen('results');
+  window.scrollTo(0, 0);
+}
+
+// ── Review ──
+let reviewVisible = false;
+function toggleReview() {
+  reviewVisible = !reviewVisible;
+  document.getElementById('review-section').style.display = reviewVisible ? 'block' : 'none';
+  document.getElementById('toggle-review-btn').textContent = reviewVisible ? 'Ẩn đáp án ▲' : 'Xem đáp án ▼';
+  if (reviewVisible) document.getElementById('review-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+function buildReview() {
+  const wrap = document.getElementById('review-cards');
+  wrap.innerHTML = '';
+  examQuestions.forEach((eq, qi) => {
+    const ans = userAnswers[qi];
+    const isCorrect = ans !== null && ans === eq.correctIdx;
+    const isSkipped = ans === null;
+    const status = isCorrect ? 'correct' : (isSkipped ? 'skipped' : 'wrong');
+    const label  = isCorrect ? 'Đúng' : (isSkipped ? 'Bỏ qua' : 'Sai');
+
+    const optsHtml = eq.shuffledOpts.map((opt, oi) => {
+      let cls = '';
+      if (oi === eq.correctIdx) cls = 'is-correct';
+      else if (oi === ans && ans !== eq.correctIdx) cls = 'is-wrong-pick';
+      const marker = oi === eq.correctIdx ? ' ✓' : (oi === ans && ans !== eq.correctIdx ? ' ✗' : '');
+      return `<div class="r-opt ${cls}">
+        <span class="r-opt-letter">${String.fromCharCode(65+oi)}.</span>
+        <span>${escHtml(opt.text)}${marker}</span>
+      </div>`;
+    }).join('');
+
+    const expHtml = eq.orig.explanation
+      ? `<div class="r-exp"><strong>Giải thích:</strong>${escHtml(eq.orig.explanation)}</div>` : '';
+
+    const card = document.createElement('div');
+    card.className = `r-card ${status}`;
+    card.innerHTML = `
+      <span class="r-badge ${status}">${label}</span>
+      <div class="r-meta">Câu ${qi+1} &nbsp;·&nbsp; ${escHtml(eq.orig.subject)} — ${escHtml(eq.orig.topic)}</div>
+      <div class="r-q">${escHtml(eq.orig.question)}</div>
+      <div class="r-opts">${optsHtml}</div>
+      ${expHtml}
+    `;
+    wrap.appendChild(card);
+  });
+}
+
+// ─────────────────────────────────────────────
+// PRACTICE MODE
+// ─────────────────────────────────────────────
+
+// Weighted random sampling without replacement
+function weightedSample(items, getWeight, n) {
+  const pool = items.map(item => ({ item, weight: getWeight(item) }));
+  const result = [];
+  for (let k = 0; k < Math.min(n, pool.length); k++) {
+    const total = pool.reduce((s, p) => s + p.weight, 0);
+    let r = Math.random() * total;
+    let idx = pool.length - 1;
+    for (let i = 0; i < pool.length; i++) {
+      r -= pool[i].weight;
+      if (r <= 0) { idx = i; break; }
+    }
+    result.push(pool[idx].item);
+    pool.splice(idx, 1);
+  }
+  return result;
+}
+
+function startPractice() {
+  const alertEl = document.getElementById('practice-alert');
+  alertEl.style.display = 'none';
+
+  const selectedTopics = getSelectedTopics();
+  if (selectedTopics.length === 0) {
+    showAlert(alertEl, 'warn', 'Vui lòng chọn ít nhất một chủ đề.');
+    return;
+  }
+
+  const totalRequested = parseInt(document.getElementById('prac-num-questions').value) || 10;
+  if (totalRequested < 1) { showAlert(alertEl, 'warn', 'Số câu phải ít nhất là 1.'); return; }
+
+  const subjectFilter = document.getElementById('sel-subject').value;
+  const pool = (subjectFilter === '__all__' ? allQuestions : allQuestions.filter(q => q.subject === subjectFilter))
+    .filter(q => selectedTopics.includes(q.topic));
+
+  if (pool.length === 0) { showAlert(alertEl, 'warn', 'Không có câu hỏi nào phù hợp.'); return; }
+
+  const history = getHistory();
+  const picked = weightedSample(pool, q => {
+    const h = history[qKey(q)];
+    if (!h) return 2;           // never seen
+    if (h.status === 'wrong') return 3;
+    return 1;                   // correct
+  }, totalRequested);
+
+  practiceQuestions = picked.map(buildShuffledQ);
+  practiceIdx = 0;
+  practiceResults = [];
+  practiceReviewVisible = false;
+
+  showScreen('practice');
+  renderPracticeQuestion();
+  window.scrollTo(0, 0);
+}
+
+function renderPracticeQuestion() {
+  const total = practiceQuestions.length;
+  const qi = practiceIdx;
+  const eq = practiceQuestions[qi];
+
+  document.getElementById('practice-prog-text').textContent = `Câu ${qi+1} / ${total}`;
+  document.getElementById('practice-progress-bar').style.width = `${(qi / total) * 100}%`;
+  document.getElementById('practice-q-num').textContent = `Câu ${qi+1} / ${total}`;
+  document.getElementById('practice-q-text').textContent = eq.orig.question;
+
+  const optWrap = document.getElementById('practice-options');
+  optWrap.innerHTML = '';
+  eq.shuffledOpts.forEach((opt, oi) => {
+    const label = document.createElement('label');
+    label.className = 'opt';
+    label.id = `popt-${oi}`;
+    label.onclick = () => submitPracticeAnswer(oi);
+    label.innerHTML = `
+      <input type="radio" name="pq" value="${oi}">
+      <span class="opt-letter">${String.fromCharCode(65+oi)}</span>
+      <span class="opt-text">${escHtml(opt.text)}</span>
+    `;
+    optWrap.appendChild(label);
+  });
+
+  document.getElementById('practice-feedback').style.display = 'none';
+  document.getElementById('practice-feedback').innerHTML = '';
+  document.getElementById('practice-next-btn').style.display = 'none';
+}
+
+function submitPracticeAnswer(selectedOi) {
+  const eq = practiceQuestions[practiceIdx];
+  const isCorrect = selectedOi === eq.correctIdx;
+
+  // Lock all options
+  eq.shuffledOpts.forEach((_, oi) => {
+    const el = document.getElementById(`popt-${oi}`);
+    if (!el) return;
+    el.classList.add('locked');
+    if (oi === eq.correctIdx)  el.classList.add('reveal-correct');
+    if (oi === selectedOi && !isCorrect) el.classList.add('reveal-wrong');
+  });
+
+  // Record result
+  practiceResults.push({ status: isCorrect ? 'correct' : 'wrong', userOptIdx: selectedOi, correctIdx: eq.correctIdx });
+
+  // Update history
+  const history = getHistory();
+  const key = qKey(eq.orig);
+  history[key] = { status: isCorrect ? 'correct' : 'wrong', ts: Date.now() };
+  saveHistory(history);
+
+  // Show feedback
+  const fb = document.getElementById('practice-feedback');
+  const expHtml = eq.orig.explanation
+    ? `<div class="fb-exp"><strong>Giải thích:</strong> ${escHtml(eq.orig.explanation)}</div>` : '';
+  const correctLetter = String.fromCharCode(65 + eq.correctIdx);
+  const correctText = eq.shuffledOpts[eq.correctIdx].text;
+
+  if (isCorrect) {
+    fb.className = 'practice-feedback fb-correct';
+    fb.innerHTML = `<div class="fb-title">✓ Chính xác!</div>${expHtml}`;
+  } else {
+    fb.className = 'practice-feedback fb-wrong';
+    fb.innerHTML = `<div class="fb-title">✗ Sai</div>
+      <div>Đáp án đúng: <strong>${correctLetter}. ${escHtml(correctText)}</strong></div>
+      ${expHtml}`;
+  }
+  fb.style.display = 'block';
+
+  // Show next or finish button
+  const nextBtn = document.getElementById('practice-next-btn');
+  const isLast = practiceIdx === practiceQuestions.length - 1;
+  nextBtn.textContent = isLast ? 'Kết thúc ✓' : 'Tiếp theo →';
+  nextBtn.style.display = 'inline-flex';
+}
+
+function nextPracticeQuestion() {
+  practiceIdx++;
+  if (practiceIdx >= practiceQuestions.length) {
+    finishPractice();
+  } else {
+    renderPracticeQuestion();
+    window.scrollTo(0, 0);
+  }
+}
+
+function finishPractice() {
+  const correct = practiceResults.filter(r => r.status === 'correct').length;
+  const total = practiceResults.length;
+  const pct = Math.round((correct / total) * 100);
+
+  document.getElementById('pres-score').textContent = `${pct}%`;
+  document.getElementById('pres-fraction').textContent = `${correct} / ${total} câu đúng`;
+  document.getElementById('pres-correct').textContent = correct;
+  document.getElementById('pres-wrong').textContent = total - correct;
+
+  buildPracticeReview();
+  practiceReviewVisible = false;
+  document.getElementById('practice-review-section').style.display = 'none';
+  document.getElementById('toggle-preview-btn').textContent = 'Xem lại đáp án ▼';
+
+  // Update progress bar to 100%
+  document.getElementById('practice-progress-bar').style.width = '100%';
+
+  showScreen('practice-results');
+  window.scrollTo(0, 0);
+}
+
+function restartPractice() {
+  // Restart with same topic/subject config, re-applying history weights
+  startPractice();
+}
+
+function togglePracticeReview() {
+  practiceReviewVisible = !practiceReviewVisible;
+  document.getElementById('practice-review-section').style.display = practiceReviewVisible ? 'block' : 'none';
+  document.getElementById('toggle-preview-btn').textContent = practiceReviewVisible ? 'Ẩn đáp án ▲' : 'Xem lại đáp án ▼';
+  if (practiceReviewVisible) document.getElementById('practice-review-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+function buildPracticeReview() {
+  const wrap = document.getElementById('practice-review-cards');
+  wrap.innerHTML = '';
+  practiceQuestions.forEach((eq, qi) => {
+    const res = practiceResults[qi];
+    if (!res) return;
+    const isCorrect = res.status === 'correct';
+    const ans = res.userOptIdx;
+
+    const optsHtml = eq.shuffledOpts.map((opt, oi) => {
+      let cls = '';
+      if (oi === eq.correctIdx) cls = 'is-correct';
+      else if (oi === ans && !isCorrect) cls = 'is-wrong-pick';
+      const marker = oi === eq.correctIdx ? ' ✓' : (oi === ans && !isCorrect ? ' ✗' : '');
+      return `<div class="r-opt ${cls}">
+        <span class="r-opt-letter">${String.fromCharCode(65+oi)}.</span>
+        <span>${escHtml(opt.text)}${marker}</span>
+      </div>`;
+    }).join('');
+
+    const expHtml = eq.orig.explanation
+      ? `<div class="r-exp"><strong>Giải thích:</strong>${escHtml(eq.orig.explanation)}</div>` : '';
+
+    const status = isCorrect ? 'correct' : 'wrong';
+    const card = document.createElement('div');
+    card.className = `r-card ${status}`;
+    card.innerHTML = `
+      <span class="r-badge ${status}">${isCorrect ? 'Đúng' : 'Sai'}</span>
+      <div class="r-meta">Câu ${qi+1} &nbsp;·&nbsp; ${escHtml(eq.orig.subject)} — ${escHtml(eq.orig.topic)}</div>
+      <div class="r-q">${escHtml(eq.orig.question)}</div>
+      <div class="r-opts">${optsHtml}</div>
+      ${expHtml}
+    `;
+    wrap.appendChild(card);
+  });
+}
+
+function confirmExitExam() {
+  if (confirm('Bạn có chắc muốn thoát? Tiến độ bài thi sẽ không được lưu.')) {
+    clearInterval(timerInterval);
+    restartToSetup();
+  }
+}
+
+function restartExam() {
+  // Re-run exam with same settings from setup screen
+  clearInterval(timerInterval);
+  restartToSetup();
+}
+
+function confirmExitPractice() {
+  if (confirm('Bạn có chắc muốn thoát? Tiến độ bài thi sẽ không được lưu.')) {
+    restartToSetup();
+  }
+}
+
+function syncWrongToPractice() {
+  const wrongQs = examQuestions.filter((eq, qi) => {
+    const ans = userAnswers[qi];
+    return ans !== null && ans !== eq.correctIdx;
+  });
+  if (wrongQs.length === 0) {
+    document.getElementById('sync-confirm').textContent = 'Không có câu sai nào.';
+    document.getElementById('sync-confirm').style.color = 'var(--muted)';
+    document.getElementById('sync-confirm').style.display = 'block';
+    return;
+  }
+  const history = getHistory();
+  wrongQs.forEach(eq => {
+    history[qKey(eq.orig)] = { status: 'wrong', ts: Date.now() };
+  });
+  saveHistory(history);
+  const btn = document.getElementById('sync-wrong-btn');
+  btn.disabled = true;
+  btn.textContent = '✓ Đã thêm';
+  const conf = document.getElementById('sync-confirm');
+  conf.textContent = `Đã thêm ${wrongQs.length} câu sai vào danh sách luyện tập.`;
+  conf.style.color = 'var(--success)';
+  conf.style.display = 'block';
+}
+
+// ─────────────────────────────────────────────
+// PROGRESS DASHBOARD
+// ─────────────────────────────────────────────
+const LS_TOPIC_SIG_KEY = 'examSim_topicSig';
+
+function getTopicSig(questions) {
+  return [...new Set(questions.map(q => q.subject + '|||' + q.topic))].sort().join(';;;');
+}
+
+function checkTopicSigOnLoad(newQuestions) {
+  const stored = localStorage.getItem(LS_TOPIC_SIG_KEY);
+  const next   = getTopicSig(newQuestions);
+  if (stored && stored !== next) {
+    if (confirm('Ngân hàng câu hỏi đã thay đổi.\nXóa lịch sử tiến độ?')) {
+      localStorage.removeItem(LS_KEY);
+    }
+  }
+  localStorage.setItem(LS_TOPIC_SIG_KEY, next);
+}
+
+function showDashboard() {
+  renderDashboard();
+  showScreen('dashboard');
+  window.scrollTo(0, 0);
+}
+
+function renderDashboard() {
+  const wrap = document.getElementById('dashboard-content');
+  wrap.innerHTML = '';
+  const history = getHistory();
+
+  // Build subject → topic → questions map from allQuestions
+  const subjectMap = {};   // { subject: { topic: [q, ...] } }
+  allQuestions.forEach(q => {
+    if (!subjectMap[q.subject]) subjectMap[q.subject] = {};
+    if (!subjectMap[q.subject][q.topic]) subjectMap[q.subject][q.topic] = [];
+    subjectMap[q.subject][q.topic].push(q);
+  });
+
+  // Aggregate stats helper
+  function statsFor(questions) {
+    const total     = questions.length;
+    const practiced = questions.filter(q => history[qKey(q)]).length;
+    const correct   = questions.filter(q => history[qKey(q)]?.status === 'correct').length;
+    const wrong     = practiced - correct;
+    const progressPct  = total > 0 ? Math.round((practiced / total) * 100) : 0;
+    const accuracyPct  = practiced > 0 ? Math.round((correct / practiced) * 100) : null;
+    return { total, practiced, correct, wrong, progressPct, accuracyPct };
+  }
+
+  function accBadge(pct) {
+    if (pct === null) return `<span class="acc-badge acc-none">Chưa học</span>`;
+    const cls = pct >= 70 ? 'acc-high' : pct >= 40 ? 'acc-mid' : 'acc-low';
+    return `<span class="acc-badge ${cls}">${pct}% đúng</span>`;
+  }
+
+  function barHtml(pct) {
+    return `<div class="dash-bar-wrap"><div class="dash-bar" style="width:${pct}%"></div></div>`;
+  }
+
+  function countsHtml(s) {
+    return `<div class="dash-counts">
+      <span class="dc">Tổng: <strong>${s.total}</strong></span>
+      <span class="dc">Đã học: <strong>${s.practiced}</strong></span>
+      <span class="dc" style="color:var(--success)">Đúng: <strong>${s.correct}</strong></span>
+      <span class="dc" style="color:var(--danger)">Sai: <strong>${s.wrong}</strong></span>
+    </div>`;
+  }
+
+  // ── Overall summary ──
+  const allStats = statsFor(allQuestions);
+  const overallCard = document.createElement('div');
+  overallCard.className = 'dash-overall-card';
+  overallCard.innerHTML = `
+    <div class="dash-overall-title">Tổng quan</div>
+    <div class="dash-overall-grid">
+      <div class="dash-overall-stat">
+        <div class="dash-overall-val">${allStats.total}</div>
+        <div class="dash-overall-lbl">Tổng câu</div>
+      </div>
+      <div class="dash-overall-stat">
+        <div class="dash-overall-val" style="color:var(--primary)">${allStats.practiced}</div>
+        <div class="dash-overall-lbl">Đã học</div>
+      </div>
+      <div class="dash-overall-stat">
+        <div class="dash-overall-val" style="color:var(--success)">${allStats.correct}</div>
+        <div class="dash-overall-lbl">Đúng</div>
+      </div>
+      <div class="dash-overall-stat">
+        <div class="dash-overall-val" style="color:var(--danger)">${allStats.wrong}</div>
+        <div class="dash-overall-lbl">Sai</div>
+      </div>
+    </div>
+    ${barHtml(allStats.progressPct)}
+    <div class="dash-bar-meta">
+      <span>Hoàn thành: ${allStats.progressPct}%</span>
+      <span>${accBadge(allStats.accuracyPct)}</span>
+    </div>
+  `;
+  wrap.appendChild(overallCard);
+
+  if (allQuestions.length === 0) {
+    wrap.innerHTML += `<div class="dash-empty"><div class="dash-empty-icon">📭</div>Chưa có câu hỏi nào.</div>`;
+    return;
+  }
+
+  // ── Per subject groups ──
+  Object.entries(subjectMap).sort(([a],[b]) => a.localeCompare(b)).forEach(([subject, topicMap]) => {
+    const subjectQs = Object.values(topicMap).flat();
+    const ss = statsFor(subjectQs);
+
+    const group = document.createElement('div');
+    group.className = 'dash-subject-group';
+
+    // Subject header
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'dash-subject-header';
+    headerDiv.innerHTML = `
+      <span class="dash-subject-name">${escHtml(subject)}</span>
+      ${accBadge(ss.accuracyPct)}
+      <button class="btn btn-neutral btn-sm" onclick="resetSubjectHistory('${escAttr(subject)}')">Xóa tiến độ</button>
+    `;
+    group.appendChild(headerDiv);
+
+    // Subject aggregate row
+    const aggDiv = document.createElement('div');
+    aggDiv.className = 'dash-subject-agg';
+    aggDiv.innerHTML = `
+      ${barHtml(ss.progressPct)}
+      <div class="dash-bar-meta" style="margin-bottom:6px">
+        <span>Hoàn thành: ${ss.progressPct}% (${ss.practiced}/${ss.total})</span>
+      </div>
+      ${countsHtml(ss)}
+    `;
+    group.appendChild(aggDiv);
+
+    // Per topic rows
+    Object.entries(topicMap).sort(([a],[b]) => a.localeCompare(b)).forEach(([topic, questions]) => {
+      const ts = statsFor(questions);
+      const topicDiv = document.createElement('div');
+      topicDiv.className = 'dash-topic-row';
+      topicDiv.innerHTML = `
+        <div class="dash-topic-top">
+          <span class="dash-topic-name">${escHtml(topic)}</span>
+          ${accBadge(ts.accuracyPct)}
+        </div>
+        ${barHtml(ts.progressPct)}
+        <div class="dash-bar-meta" style="margin-bottom:4px">
+          <span>Hoàn thành: ${ts.progressPct}% (${ts.practiced}/${ts.total})</span>
+        </div>
+        ${countsHtml(ts)}
+      `;
+      group.appendChild(topicDiv);
+    });
+
+    wrap.appendChild(group);
+  });
+
+  // ── Reset all button ──
+  const footer = document.createElement('div');
+  footer.style.cssText = 'text-align:center; padding: 8px 0 24px;';
+  footer.innerHTML = `<button class="btn btn-neutral btn-sm" onclick="resetAllHistoryFromDash()">Xóa tất cả tiến độ</button>`;
+  wrap.appendChild(footer);
+}
+
+function resetSubjectHistory(subject) {
+  if (!confirm(`Xóa toàn bộ tiến độ môn "${subject}"? Thao tác này không thể hoàn tác.`)) return;
+  const history = getHistory();
+  allQuestions.filter(q => q.subject === subject).forEach(q => delete history[qKey(q)]);
+  saveHistory(history);
+  renderDashboard();
+  updateHistoryStats();
+}
+
+function resetAllHistoryFromDash() {
+  if (!confirm('Xóa toàn bộ tiến độ luyện tập? Thao tác này không thể hoàn tác.')) return;
+  localStorage.removeItem(LS_KEY);
+  renderDashboard();
+  updateHistoryStats();
+}
+
+// ─────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${name}`).classList.add('active');
+}
+
+function restartToSetup() {
+  clearInterval(timerInterval);
+  reviewVisible = false;
+  document.getElementById('review-section').style.display = 'none';
+  showScreen('setup');
+  window.scrollTo(0, 0);
+  if (currentMode === 'practice') updateHistoryStats();
+}
+
+function showAlert(el, type, msg) {
+  el.className = `alert alert-${type}`;
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function formatTime(s) {
+  const m = Math.floor(s/60), sec = s%60;
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escAttr(str) {
+  if (!str) return '';
+  return str.replace(/"/g, '\\"');
+}
+
+// ─────────────────────────────────────────────
+// BOOT
+// ─────────────────────────────────────────────
+initTheme();
+
+(function autoLoad() {
+  fetch('QuestionBank_2026.csv')
+    .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+    .then(text => {
+      const data = parseCSV(text);
+      if (data.length) {
+        init(data);
+        document.getElementById('file-status').innerHTML =
+          'QuestionBank_2026.csv: <strong id="q-count-total">' + allQuestions.length + '</strong> câu';
+      } else {
+        init(EMBEDDED_DATA);
+      }
+    })
+    .catch(() => init(EMBEDDED_DATA));
+})();
+</script>
+</body>
+</html>
